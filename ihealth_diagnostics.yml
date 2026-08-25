@@ -78,7 +78,7 @@
         set -euo pipefail
         QKVIEW_PATH="{{ qkview_poll.json.qkviewUri | default('/mgmt/cm/autodeploy/qkview-downloads/' + qkview_remote_name) }}"
         # The device may return an absolute URL pointing at itself as
-        # "localhost" (its own internal view) — that's unreachable from
+        # localhost (its own internal view), which is unreachable from
         # outside, so always rebuild from the path, ignoring any embedded host.
         if [[ "$QKVIEW_PATH" == http* ]]; then
           QKVIEW_PATH="/$(echo "$QKVIEW_PATH" | sed -E 's#^https?://[^/]+/##')"
