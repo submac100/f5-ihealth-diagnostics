@@ -77,11 +77,13 @@
       ansible.builtin.shell: |
         set -euo pipefail
         QKVIEW_PATH="{{ qkview_poll.json.qkviewUri | default('/mgmt/cm/autodeploy/qkview-downloads/' + qkview_remote_name) }}"
+        # The device may return an absolute URL pointing at itself as
+        # "localhost" (its own internal view) — that's unreachable from
+        # outside, so always rebuild from the path, ignoring any embedded host.
         if [[ "$QKVIEW_PATH" == http* ]]; then
-          URL="$QKVIEW_PATH"
-        else
-          URL="{{ f5_base_url }}${QKVIEW_PATH}"
+          QKVIEW_PATH="/$(echo "$QKVIEW_PATH" | sed -E 's#^https?://[^/]+/##')"
         fi
+        URL="{{ f5_base_url }}${QKVIEW_PATH}"
         DEST="{{ staging_dir }}/{{ qkview_name }}"
         CHUNK=1048576
         start=0
