@@ -24,10 +24,10 @@
   vars:
     backup_date: "{{ lookup('pipe', 'date -u +%Y-%m-%d') }}"
     qkview_name: "{{ inventory_hostname }}-{{ backup_date }}.qkview"
-    # bigip_qkview's `filename` (the name created ON the device) only accepts
-    # word characters and dots (no hyphens) — sanitize just that copy; the
-    # local staging name above can stay human-readable.
+    # The name created ON the device only accepts word characters and dots
+    # (no hyphens) — sanitize just that copy; local staging stays readable.
     qkview_remote_name: "{{ (inventory_hostname + '-' + backup_date) | replace('-', '_') }}.qkview"
+    f5_base_url: "https://{{ ansible_host }}:{{ f5_server_port | default(443) }}"
 
   tasks:
     - name: Ensure the local staging directory exists
@@ -38,13 +38,84 @@
       delegate_to: localhost
       run_once: true
 
-    - name: Create and download the QKView
-      f5networks.f5_modules.bigip_qkview:
-        filename: "{{ qkview_remote_name }}"
-        dest: "{{ staging_dir }}/{{ qkview_name }}"
-        complete_information: "{{ complete_information }}"
-        force: true
-        provider: "{{ f5_provider }}"
+    # f5networks.f5_modules.bigip_qkview's create+download flow hits a known,
+    # still-unresolved upstream bug (KeyError: '_taskState' —
+    # F5Networks/f5-ansible#2216): its async-task poller doesn't understand
+    # this BIG-IP's response shape. Hand-rolled below against the documented
+    # CM autodeploy qkview worker instead, which bypasses the buggy code path.
+
+    - name: Start qkview generation on the device
+      ansible.builtin.uri:
+        url: "{{ f5_base_url }}/mgmt/cm/autodeploy/qkview"
+        method: POST
+        url_username: "{{ f5_username }}"
+        url_password: "{{ f5_password }}"
+        force_basic_auth: true
+        validate_certs: false
+        body_format: json
+        body:
+          name: "{{ qkview_remote_name }}"
+        status_code: [200, 201, 202]
+      register: qkview_create
+
+    - name: Wait for qkview generation to finish on the device
+      ansible.builtin.uri:
+        url: "{{ f5_base_url }}/mgmt/cm/autodeploy/qkview/{{ qkview_create.json.id }}"
+        method: GET
+        url_username: "{{ f5_username }}"
+        url_password: "{{ f5_password }}"
+        force_basic_auth: true
+        validate_certs: false
+        status_code: [200]
+      register: qkview_poll
+      until: (qkview_poll.json.status | default('UNKNOWN') | upper) in ['FINISHED', 'COMPLETED', 'COMPLETE', 'SUCCESS', 'SUCCEEDED']
+      retries: "{{ qkview_poll_retries }}"
+      delay: "{{ qkview_poll_delay }}"
+      failed_when: (qkview_poll.json.status | default('UNKNOWN') | upper) in ['FAILED', 'ERROR', 'CANCELLED', 'CANCELED']
+
+    - name: Download the completed qkview in chunks
+      ansible.builtin.shell: |
+        set -euo pipefail
+        QKVIEW_PATH="{{ qkview_poll.json.qkviewUri | default('/mgmt/cm/autodeploy/qkview-downloads/' + qkview_remote_name) }}"
+        if [[ "$QKVIEW_PATH" == http* ]]; then
+          URL="$QKVIEW_PATH"
+        else
+          URL="{{ f5_base_url }}${QKVIEW_PATH}"
+        fi
+        DEST="{{ staging_dir }}/{{ qkview_name }}"
+        CHUNK=1048576
+        start=0
+        : > "$DEST"
+        while true; do
+          end=$((start + CHUNK - 1))
+          tmp=$(mktemp)
+          code=$(curl -k -s -o "$tmp" -w "%{http_code}" \
+            -u "${F5_USER}:${F5_PASS}" \
+            -H "Content-Range: ${start}-${end}/*" \
+            "$URL")
+          if [ "$code" = "400" ] || [ "$code" = "416" ]; then
+            rm -f "$tmp"
+            break
+          fi
+          size=$(wc -c < "$tmp")
+          cat "$tmp" >> "$DEST"
+          rm -f "$tmp"
+          if [ "$size" -lt "$CHUNK" ]; then
+            break
+          fi
+          start=$((start + size))
+        done
+        echo "Downloaded $(wc -c < "$DEST") bytes to $DEST"
+      args:
+        executable: /bin/bash
+      environment:
+        F5_USER: "{{ f5_username }}"
+        F5_PASS: "{{ f5_password }}"
+      register: qkview_download
+
+    - name: Report the downloaded qkview size
+      ansible.builtin.debug:
+        msg: "{{ qkview_download.stdout }}"
 
     - name: Remove the transient qkview from the device
       f5networks.f5_modules.bigip_command:
@@ -52,6 +123,7 @@
           - "run util bash -c 'rm -f /var/tmp/{{ qkview_remote_name }}'"
         provider: "{{ f5_provider }}"
       when: remove_remote_qkview | bool
+      ignore_errors: true
 
 
 - name: Upload each qkview to iHealth and render a diagnostics report

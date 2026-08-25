@@ -14,6 +14,11 @@ ihealth_api_host:  "ihealth2-api.f5.com"
 ihealth_poll_retries: 30
 ihealth_poll_delay:   10
 
+# On-device qkview generation polling (separate from the iHealth polling
+# above). 40 * 15s gives qkview generation up to 10 minutes to complete.
+qkview_poll_retries: 40
+qkview_poll_delay:   15
+
 # Destination diagnostics repository (NOT this repo). This one is PUBLIC — only
 # the rendered Markdown report is ever pushed here, never the raw qkview file.
 # Use the host/path WITHOUT the https:// — the play injects the token.
