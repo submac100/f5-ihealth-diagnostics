@@ -24,6 +24,10 @@
   vars:
     backup_date: "{{ lookup('pipe', 'date -u +%Y-%m-%d') }}"
     qkview_name: "{{ inventory_hostname }}-{{ backup_date }}.qkview"
+    # bigip_qkview's `filename` (the name created ON the device) only accepts
+    # word characters and dots (no hyphens) — sanitize just that copy; the
+    # local staging name above can stay human-readable.
+    qkview_remote_name: "{{ (inventory_hostname + '-' + backup_date) | replace('-', '_') }}.qkview"
 
   tasks:
     - name: Ensure the local staging directory exists
@@ -36,7 +40,7 @@
 
     - name: Create and download the QKView
       f5networks.f5_modules.bigip_qkview:
-        filename: "{{ qkview_name }}"
+        filename: "{{ qkview_remote_name }}"
         dest: "{{ staging_dir }}/{{ qkview_name }}"
         complete_information: "{{ complete_information }}"
         force: true
@@ -45,7 +49,7 @@
     - name: Remove the transient qkview from the device
       f5networks.f5_modules.bigip_command:
         commands:
-          - "run util bash -c 'rm -f /var/tmp/{{ qkview_name }}'"
+          - "run util bash -c 'rm -f /var/tmp/{{ qkview_remote_name }}'"
         provider: "{{ f5_provider }}"
       when: remove_remote_qkview | bool
 
