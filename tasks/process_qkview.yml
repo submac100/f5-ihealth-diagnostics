@@ -15,7 +15,6 @@
         mime_type: application/octet-stream
     status_code: [200, 202]
   register: upload_result
-  no_log: true
 
 - name: Record the iHealth qkview resource URL
   ansible.builtin.set_fact:
