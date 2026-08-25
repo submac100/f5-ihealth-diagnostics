@@ -184,33 +184,25 @@
       register: staged_reports
       failed_when: staged_reports.matched == 0
 
-    - name: DEBUG - confirm git_pat is populated (length only, not the value)
-      ansible.builtin.debug:
-        msg: "git_pat length = {{ git_pat | length }}"
-
     - name: Clone (or initialize, on first run) the diagnostics repository
       ansible.builtin.shell: |
         set -euo pipefail
         rm -rf "{{ work_dir }}"
-        if git clone --branch "{{ diagnostics_branch }}" "https://{{ git_pat }}@{{ diagnostics_repo }}" "{{ work_dir }}" 2>clone_err.log; then
+        if git clone --branch "{{ diagnostics_branch }}" "https://{{ git_pat }}:@{{ diagnostics_repo }}" "{{ work_dir }}"; then
           echo "CLONED"
         else
-          echo "CLONE_FAILED: $(cat clone_err.log)"
           mkdir -p "{{ work_dir }}"
           cd "{{ work_dir }}"
           git init -q -b "{{ diagnostics_branch }}"
-          git remote add origin "https://{{ git_pat }}@{{ diagnostics_repo }}"
+          git remote add origin "https://{{ git_pat }}:@{{ diagnostics_repo }}"
           echo "INITIALIZED"
         fi
       args:
         executable: /bin/bash
       environment:
         GIT_TERMINAL_PROMPT: "0" # fail fast instead of hanging if auth fails non-interactively
+      no_log: true
       register: clone_result
-
-    - name: DEBUG - show which branch the clone/init task took
-      ansible.builtin.debug:
-        msg: "{{ clone_result.stdout_lines }}"
 
     - name: Ensure the diagnostics directory exists in the repo checkout
       ansible.builtin.file:
@@ -273,6 +265,7 @@
         executable: /bin/bash
       environment:
         GIT_TERMINAL_PROMPT: "0" # fail fast instead of hanging if auth fails non-interactively
+      no_log: true
       register: push_result
       changed_when: "'PUSHED' in push_result.stdout"
 
