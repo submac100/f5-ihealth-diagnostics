@@ -1,0 +1,26 @@
+# iHealth Diagnostics — {{ ihealth_hostname }}
+
+- **Date:** {{ backup_date }}
+- **QKView ID:** {{ qkview_id }}
+
+{% set diagnostics_sorted = (diagnostics_list | selectattr('run_data.h_importance', 'equalto', 'CRITICAL') | list)
+                           + (diagnostics_list | selectattr('run_data.h_importance', 'equalto', 'HIGH') | list)
+                           + (diagnostics_list | selectattr('run_data.h_importance', 'equalto', 'MEDIUM') | list)
+                           + (diagnostics_list | selectattr('run_data.h_importance', 'equalto', 'LOW') | list) -%}
+
+| Severity | Count |
+|----------|-------|
+| Critical | {{ diagnostics_list | selectattr('run_data.h_importance', 'equalto', 'CRITICAL') | list | length }} |
+| High     | {{ diagnostics_list | selectattr('run_data.h_importance', 'equalto', 'HIGH') | list | length }} |
+| Medium   | {{ diagnostics_list | selectattr('run_data.h_importance', 'equalto', 'MEDIUM') | list | length }} |
+| Low      | {{ diagnostics_list | selectattr('run_data.h_importance', 'equalto', 'LOW') | list | length }} |
+
+## Findings
+
+| Severity | Diagnostic | Heading | Summary |
+|----------|------------|---------|---------|
+{% for d in diagnostics_sorted -%}
+{% set heading = d.results.h_header | replace('&quot;', "'") | replace('&amp;#39;', "'") | replace('&amp;amp;#8217;', "'") | replace('&lsquo;', "'") | replace('&rsquo;', "'") | replace('&amp;gt;', '>') | replace('&gt;', '>') | replace('&lt;', '<') -%}
+{% set summary = d.results.h_summary | replace('&quot;', "'") | replace('&amp;#39;', "'") | replace('&amp;amp;#8217;', "'") | replace('&lsquo;', "'") | replace('&rsquo;', "'") | replace('&amp;gt;', '>') | replace('&gt;', '>') | replace('&lt;', '<') | replace('\n', ' ') | replace('|', '\\|') -%}
+| {{ d.run_data.h_importance }} | {{ d.name }} | {{ heading }} | {{ summary }} |
+{% endfor %}

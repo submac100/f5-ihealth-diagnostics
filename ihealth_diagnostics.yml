@@ -1,0 +1,194 @@
+---
+# ============================================================================
+# F5 BIG-IP qkview -> iHealth -> diagnostics table -> public git repo.
+#
+#   Play 1  (hosts: bigip)     generate + download a qkview per device
+#   Play 2  (hosts: localhost) upload to iHealth, poll for analysis, fetch
+#                              diagnostics, render a sorted Markdown report
+#   Play 3  (hosts: localhost) clone the PUBLIC diagnostics repo, add the new
+#                              report(s), regenerate the README index, push
+#
+# Secrets expected at runtime (from AWX credentials or --extra-vars):
+#   f5_username, f5_password             - BIG-IP account (qkview generation)
+#   ihealth_client_id, ihealth_client_secret - F5 iHealth API OAuth2 client
+#   git_pat                              - token with write access to the
+#                                           PUBLIC diagnostics repo
+#
+# Only the rendered Markdown report is ever pushed — the raw .qkview file
+# (full config/license dump) never leaves staging_dir. See README.md.
+# ============================================================================
+
+- name: Generate and retrieve a qkview from each BIG-IP
+  hosts: bigip
+  gather_facts: false
+  vars:
+    backup_date: "{{ lookup('pipe', 'date -u +%Y-%m-%d') }}"
+    qkview_name: "{{ inventory_hostname }}-{{ backup_date }}.qkview"
+
+  tasks:
+    - name: Ensure the local staging directory exists
+      ansible.builtin.file:
+        path: "{{ staging_dir }}"
+        state: directory
+        mode: "0750"
+      delegate_to: localhost
+      run_once: true
+
+    - name: Create and download the QKView
+      f5networks.f5_modules.bigip_qkview:
+        filename: "{{ qkview_name }}"
+        dest: "{{ staging_dir }}/{{ qkview_name }}"
+        complete_information: "{{ complete_information }}"
+        force: true
+        provider: "{{ f5_provider }}"
+
+    - name: Remove the transient qkview from the device
+      f5networks.f5_modules.bigip_command:
+        commands:
+          - "run util bash -c 'rm -f /var/tmp/{{ qkview_name }}'"
+        provider: "{{ f5_provider }}"
+      when: remove_remote_qkview | bool
+
+
+- name: Upload each qkview to iHealth and render a diagnostics report
+  hosts: localhost
+  gather_facts: false
+  vars:
+    backup_date: "{{ lookup('pipe', 'date -u +%Y-%m-%d') }}"
+
+  tasks:
+    - name: Confirm at least one qkview was captured this run
+      ansible.builtin.find:
+        paths: "{{ staging_dir }}"
+        patterns: "*.qkview"
+      register: staged
+      failed_when: staged.matched == 0
+
+    - name: Get an iHealth API OAuth2 token
+      ansible.builtin.uri:
+        url: "{{ ihealth_token_url }}"
+        method: POST
+        headers:
+          Authorization: "Basic {{ (ihealth_client_id + ':' + ihealth_client_secret) | b64encode }}"
+          Content-Type: "application/x-www-form-urlencoded"
+        body_format: form-urlencoded
+        body:
+          grant_type: client_credentials
+          scope: ihealth
+        status_code: [200]
+      register: token_response
+      no_log: true
+
+    - name: Set the iHealth auth header
+      ansible.builtin.set_fact:
+        ihealth_auth_header: "{{ token_response.json.token_type }} {{ token_response.json.access_token }}"
+      no_log: true
+
+    - name: Upload, poll and render a report for each staged qkview
+      ansible.builtin.include_tasks: tasks/process_qkview.yml
+      loop: "{{ staged.files }}"
+      loop_control:
+        loop_var: qkview_file
+        label: "{{ qkview_file.path | basename }}"
+
+
+- name: Publish diagnostics reports to the public repository
+  hosts: localhost
+  gather_facts: false
+  vars:
+    backup_date: "{{ lookup('pipe', 'date -u +%Y-%m-%d') }}"
+
+  tasks:
+    - name: Confirm at least one diagnostics report was generated this run
+      ansible.builtin.find:
+        paths: "{{ staging_dir }}/reports"
+        patterns: "*.md"
+      register: staged_reports
+      failed_when: staged_reports.matched == 0
+
+    - name: Clone (or initialize, on first run) the diagnostics repository
+      ansible.builtin.shell: |
+        set -euo pipefail
+        rm -rf "{{ work_dir }}"
+        if git clone --branch "{{ diagnostics_branch }}" "https://{{ git_pat }}@{{ diagnostics_repo }}" "{{ work_dir }}"; then
+          echo "CLONED"
+        else
+          mkdir -p "{{ work_dir }}"
+          cd "{{ work_dir }}"
+          git init -q -b "{{ diagnostics_branch }}"
+          git remote add origin "https://{{ git_pat }}@{{ diagnostics_repo }}"
+          echo "INITIALIZED"
+        fi
+      args:
+        executable: /bin/bash
+      no_log: true
+      register: clone_result
+
+    - name: Ensure the diagnostics directory exists in the repo checkout
+      ansible.builtin.file:
+        path: "{{ work_dir }}/diagnostics"
+        state: directory
+        mode: "0750"
+
+    - name: Copy the freshly rendered reports into the repo checkout
+      ansible.builtin.copy:
+        src: "{{ item.path }}"
+        dest: "{{ work_dir }}/diagnostics/{{ item.path | basename }}"
+        mode: "0640"
+      loop: "{{ staged_reports.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+
+    - name: Regenerate the repository README index
+      ansible.builtin.shell: |
+        set -euo pipefail
+        cd "{{ work_dir }}"
+        {
+          echo "# F5 iHealth Diagnostics"
+          echo
+          echo "Automated pipeline: qkview generated on a BIG-IP -> uploaded to F5 iHealth ->"
+          echo "diagnostics retrieved and rendered as a Markdown table. One report per run."
+          echo
+          echo "| Date | Hostname | Critical | High | Medium | Low | Report |"
+          echo "|------|----------|----------|------|--------|-----|--------|"
+          for f in $(ls diagnostics/*.md 2>/dev/null | sort -r); do
+            base=$(basename "$f" .md)
+            date="${base: -10}"
+            host="${base%-$date}"
+            critical=$(grep -m1 '^| Critical' "$f" | awk -F'|' '{gsub(/ /,"",$3); print $3}')
+            high=$(grep -m1 '^| High' "$f" | awk -F'|' '{gsub(/ /,"",$3); print $3}')
+            medium=$(grep -m1 '^| Medium' "$f" | awk -F'|' '{gsub(/ /,"",$3); print $3}')
+            low=$(grep -m1 '^| Low' "$f" | awk -F'|' '{gsub(/ /,"",$3); print $3}')
+            echo "| ${date} | ${host} | ${critical} | ${high} | ${medium} | ${low} | [${base}](${f}) |"
+          done
+        } > README.md
+      args:
+        executable: /bin/bash
+      register: readme_regen
+      changed_when: true
+
+    - name: Stage, commit and push the new diagnostics report(s)
+      ansible.builtin.shell: |
+        set -euo pipefail
+        cd "{{ work_dir }}"
+        git config user.name  "{{ git_user_name }}"
+        git config user.email "{{ git_user_email }}"
+        git add -A
+        if git diff --cached --quiet; then
+          echo "NO_CHANGES"
+        else
+          git commit -q -m "iHealth diagnostics {{ backup_date }}"
+          git push -q -u origin "{{ diagnostics_branch }}"
+          echo "PUSHED"
+        fi
+      args:
+        executable: /bin/bash
+      no_log: true
+      register: push_result
+      changed_when: "'PUSHED' in push_result.stdout"
+
+    - name: Publish summary
+      ansible.builtin.debug:
+        msg: >-
+          Published {{ staged_reports.matched }} diagnostics report(s);
+          repo push result: {{ 'pushed' if 'PUSHED' in push_result.stdout else 'no changes' }}.

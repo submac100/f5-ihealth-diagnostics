@@ -1,0 +1,32 @@
+---
+# Local working directories inside the execution environment (shared across plays;
+# the whole job runs in one EE container, so /tmp is shared between hosts and plays).
+staging_dir: "/tmp/f5-ihealth/staging"   # where the fetched qkview lands
+work_dir:    "/tmp/f5-ihealth/repo"      # local clone of the diagnostics repo
+
+# F5 iHealth API endpoints. The token URL's authorization-server path is fixed by
+# F5 for the iHealth API product (not per-customer) — confirmed working as of 2026.
+ihealth_token_url: "https://identity.account.f5.com/oauth2/ausp95ykc80HOU7SQ357/v1/token"
+ihealth_api_host:  "ihealth2-api.f5.com"
+
+# Polling: F5 documents "wait at least 10s" between checks after a 202. 30 * 10s
+# gives a qkview up to 5 minutes to finish analysis before the job fails.
+ihealth_poll_retries: 30
+ihealth_poll_delay:   10
+
+# Destination diagnostics repository (NOT this repo). This one is PUBLIC — only
+# the rendered Markdown report is ever pushed here, never the raw qkview file.
+# Use the host/path WITHOUT the https:// — the play injects the token.
+diagnostics_repo:   "github.com/submac100/f5-ihealth-diagnostics.git"
+diagnostics_branch: "main"
+
+# Commit identity
+git_user_name:  "Submac100"
+git_user_email: "richard@saltt.tech"
+
+# Set false to KEEP the qkview on the device after download (e.g. for manual
+# inspection). Default removes it so device disk doesn't fill.
+remove_remote_qkview: true
+
+# true = include ASM/complete diagnostic data in the qkview (larger, slower).
+complete_information: false

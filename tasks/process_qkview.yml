@@ -1,0 +1,64 @@
+---
+# Included once per staged qkview file (loop_var: qkview_file). Runs on localhost.
+
+- name: "Upload {{ qkview_file.path | basename }} to iHealth"
+  ansible.builtin.uri:
+    url: "https://{{ ihealth_api_host }}/qkview-analyzer/api/qkviews"
+    method: POST
+    headers:
+      Authorization: "{{ ihealth_auth_header }}"
+      Accept: "application/vnd.f5.ihealth.api+json"
+    body_format: form-multipart
+    body:
+      qkview:
+        filename: "{{ qkview_file.path }}"
+        mime_type: application/octet-stream
+    status_code: [200, 202]
+  register: upload_result
+  no_log: true
+
+- name: Record the iHealth qkview resource URL
+  ansible.builtin.set_fact:
+    qkview_url: "{{ upload_result.location }}"
+
+- name: Wait for iHealth to finish analyzing the qkview
+  ansible.builtin.uri:
+    url: "{{ qkview_url }}"
+    method: GET
+    headers:
+      Authorization: "{{ ihealth_auth_header }}"
+      Accept: "application/vnd.f5.ihealth.api+json"
+    status_code: [200, 202]
+  register: poll_result
+  until: poll_result.status == 200
+  retries: "{{ ihealth_poll_retries }}"
+  delay: "{{ ihealth_poll_delay }}"
+
+- name: Record qkview id and hostname
+  ansible.builtin.set_fact:
+    qkview_id: "{{ qkview_url | basename }}"
+    ihealth_hostname: "{{ poll_result.json.hostname | default(qkview_file.path | basename | splitext | first) }}"
+
+- name: Fetch diagnostics for this qkview
+  ansible.builtin.uri:
+    url: "{{ qkview_url }}/diagnostics"
+    method: GET
+    headers:
+      Authorization: "{{ ihealth_auth_header }}"
+      Accept: "application/vnd.f5.ihealth.api+json"
+    status_code: [200]
+  register: diagnostics_result
+
+- name: Ensure the local reports staging directory exists
+  ansible.builtin.file:
+    path: "{{ staging_dir }}/reports"
+    state: directory
+    mode: "0750"
+
+- name: Render the sorted diagnostics table
+  ansible.builtin.template:
+    src: diagnostics_table.md.j2
+    dest: "{{ staging_dir }}/reports/{{ ihealth_hostname }}-{{ backup_date }}.md"
+    mode: "0640"
+  vars:
+    diagnostics_list: "{{ diagnostics_result.json.diagnostics.diagnostic }}"
