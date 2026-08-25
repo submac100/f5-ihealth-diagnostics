@@ -16,7 +16,6 @@
     status_code: [200, 202]
     timeout: 900 # large multipart upload; the uri module's 30s default is far too short
   register: upload_result
-  no_log: true
 
 - name: Record the iHealth qkview resource URL
   ansible.builtin.set_fact:
