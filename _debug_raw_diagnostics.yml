@@ -35,12 +35,12 @@
       ansible.builtin.debug:
         var: diagnostics_result.json.diagnostics.diagnostic[0]
 
-    - name: Dump a CVE-looking entry if one exists
+    - name: Dump any entry with actual CVE/fixed-version/related-change data populated
       ansible.builtin.debug:
         var: item
       loop: "{{ diagnostics_result.json.diagnostics.diagnostic }}"
       loop_control:
         label: "{{ item.name }}"
       when: >
-        (item.name is search('(?i)cve')) or
-        (item.results.h_header is defined and item.results.h_header is search('(?i)cve'))
+        (item.results.h_cve_ids is defined and item.results.h_cve_ids) or
+        (item.fixedInVersions is defined and item.fixedInVersions.version | default([]) | length > 0)
