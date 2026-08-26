@@ -9,10 +9,12 @@ work_dir:    "/tmp/f5-ihealth/repo"      # local clone of the diagnostics repo
 ihealth_token_url: "https://identity.account.f5.com/oauth2/ausp95ykc80HOU7SQ357/v1/token"
 ihealth_api_host:  "ihealth2-api.f5.com"
 
-# Polling: F5 documents "wait at least 10s" between checks after a 202. 30 * 10s
-# gives a qkview up to 5 minutes to finish analysis before the job fails.
-ihealth_poll_retries: 30
-ihealth_poll_delay:   10
+# Polling: F5 documents "wait at least 10s" between checks after a 202.
+# Confirmed live that 5 minutes (30*10s) isn't enough for an ~87MB qkview --
+# it was still "processing_status": "RUNNING" at that point. 90*20s gives it
+# up to 30 minutes, which should comfortably cover real-world qkview sizes.
+ihealth_poll_retries: 90
+ihealth_poll_delay:   20
 
 # On-device qkview generation polling (separate from the iHealth polling
 # above). 40 * 15s gives qkview generation up to 10 minutes to complete.
