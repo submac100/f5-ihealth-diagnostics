@@ -1,3 +1,26 @@
+{% macro clean(text) -%}
+{{ text | replace('&quot;', "'") | replace('&amp;#39;', "'") | replace('&amp;amp;#8217;', "'") | replace('&lsquo;', "'") | replace('&rsquo;', "'") | replace('&amp;gt;', '>') | replace('&gt;', '>') | replace('&lt;', '<') }}
+{%- endmacro %}
+{# solution entries whose id starts with "K" are KB articles; everything else
+   is treated as a related-change id (see note near the Details loop below) #}
+{% macro links_list(items) -%}
+{% set ns = namespace(out=[]) -%}
+{% for item in items -%}
+{% if item.id.startswith('K') -%}
+{% set ns.out = ns.out + ['[' + item.id + '](' + item.value + ')'] -%}
+{% endif -%}
+{% endfor -%}
+{{ ns.out | join(', ') if ns.out | length > 0 else '—' }}
+{%- endmacro %}
+{% macro ids_list(items) -%}
+{% set ns = namespace(out=[]) -%}
+{% for item in items -%}
+{% if not item.id.startswith('K') -%}
+{% set ns.out = ns.out + ['ID ' + item.id] -%}
+{% endif -%}
+{% endfor -%}
+{{ ns.out | join(', ') if ns.out | length > 0 else '—' }}
+{%- endmacro %}
 # iHealth Diagnostics — {{ ihealth_hostname }}
 
 - **Date:** {{ backup_date }}
@@ -20,7 +43,28 @@
 | Severity | Diagnostic | Heading | Summary |
 |----------|------------|---------|---------|
 {% for d in diagnostics_sorted -%}
-{% set heading = d.results.h_header | replace('&quot;', "'") | replace('&amp;#39;', "'") | replace('&amp;amp;#8217;', "'") | replace('&lsquo;', "'") | replace('&rsquo;', "'") | replace('&amp;gt;', '>') | replace('&gt;', '>') | replace('&lt;', '<') -%}
-{% set summary = d.results.h_summary | replace('&quot;', "'") | replace('&amp;#39;', "'") | replace('&amp;amp;#8217;', "'") | replace('&lsquo;', "'") | replace('&rsquo;', "'") | replace('&amp;gt;', '>') | replace('&gt;', '>') | replace('&lt;', '<') | replace('\n', ' ') | replace('|', '\\|') -%}
-| {{ d.run_data.h_importance }} | {{ d.name }} | {{ heading }} | {{ summary }} |
+{% set summary = clean(d.results.h_summary) | replace('\n', ' ') | replace('|', '\\|') -%}
+| {{ d.run_data.h_importance }} | {{ d.name }} | {{ clean(d.results.h_header) }} | {{ summary }} |
+{% endfor %}
+
+## Details
+
+<!-- Fixes Introduced In / CVE Identifiers come straight from the iHealth API
+     (fixedInVersions.version, results.h_cve_ids). Article Links / Related
+     Changes are both derived from results.solution, split by id prefix
+     ("K..." = KB article, anything else = related change ID) -- this repo
+     hasn't seen a CVE-flagged finding live yet to confirm that split, so
+     treat "Related Changes" as best-effort until validated against one. -->
+{% for d in diagnostics_sorted %}
+{% set solution = d.results.solution | default([]) -%}
+{% set fixed_in = d.fixedInVersions.version | default([]) if d.fixedInVersions is defined else [] -%}
+{% set cve_ids = d.results.h_cve_ids -%}
+<details>
+<summary>{{ d.name }} — {{ clean(d.results.h_header) }}</summary>
+
+- **Fixes Introduced In:** {{ fixed_in | join(', ') if fixed_in | length > 0 else '—' }}
+- **CVE Identifiers:** {{ (cve_ids if cve_ids is string else cve_ids | join(', ')) if cve_ids else '—' }}
+- **Article Links:** {{ links_list(solution) }}
+- **Related Changes:** {{ ids_list(solution) }}
+</details>
 {% endfor %}
