@@ -44,7 +44,7 @@
 |----------|------------|---------|---------|
 {% for d in diagnostics_sorted -%}
 {% set summary = clean(d.results.h_summary) | replace('\n', ' ') | replace('|', '\\|') -%}
-| {{ d.run_data.h_importance }} | {{ d.name }} | {{ clean(d.results.h_header) }} | {{ summary }} |
+| {{ d.run_data.h_importance }} | [{{ d.name }}](#finding-{{ d.name | lower }}) | {{ clean(d.results.h_header) }} | {{ summary }} |
 {% endfor %}
 
 ## Details
@@ -59,7 +59,7 @@
 {% set solution = d.results.solution | default([]) -%}
 {% set fixed_in = d.fixedInVersions.version | default([]) if d.fixedInVersions is defined else [] -%}
 {% set cve_ids = d.results.h_cve_ids -%}
-<details>
+<details id="finding-{{ d.name | lower }}">
 <summary>{{ d.name }} — {{ clean(d.results.h_header) }}</summary>
 
 - **Fixes Introduced In:** {{ fixed_in | join(', ') if fixed_in | length > 0 else '—' }}
