@@ -1,0 +1,46 @@
+---
+# Throwaway debug playbook — dumps raw diagnostic JSON for an already-analyzed
+# qkview so we can see the real field names before extending the report
+# template. Not part of the real pipeline; delete after use.
+- name: DEBUG - dump raw diagnostics JSON
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Get an iHealth API OAuth2 token
+      ansible.builtin.uri:
+        url: "{{ ihealth_token_url }}"
+        method: POST
+        headers:
+          Authorization: "Basic {{ (ihealth_client_id + ':' + ihealth_client_secret) | b64encode }}"
+          Content-Type: "application/x-www-form-urlencoded"
+        body_format: form-urlencoded
+        body:
+          grant_type: client_credentials
+          scope: ihealth
+        status_code: [200]
+      register: token_response
+      no_log: true
+
+    - name: Fetch diagnostics for the known qkview id
+      ansible.builtin.uri:
+        url: "https://{{ ihealth_api_host }}/qkview-analyzer/api/qkviews/26765712/diagnostics"
+        method: GET
+        headers:
+          Authorization: "{{ token_response.json.token_type }} {{ token_response.json.access_token }}"
+          Accept: "application/vnd.f5.ihealth.api+json"
+        status_code: [200]
+      register: diagnostics_result
+
+    - name: Dump the full raw structure of the first diagnostic entry
+      ansible.builtin.debug:
+        var: diagnostics_result.json.diagnostics.diagnostic[0]
+
+    - name: Dump a CVE-looking entry if one exists
+      ansible.builtin.debug:
+        var: item
+      loop: "{{ diagnostics_result.json.diagnostics.diagnostic }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: >
+        (item.name is search('(?i)cve')) or
+        (item.results.h_header is defined and item.results.h_header is search('(?i)cve'))
