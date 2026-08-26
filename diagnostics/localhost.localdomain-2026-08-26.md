@@ -1,7 +1,7 @@
 # iHealth Diagnostics — localhost.localdomain
 
 - **Date:** 2026-08-26
-- **QKView ID:** 26765712
+- **QKView ID:** 26766088
 
 | Severity | Count |
 |----------|-------|
@@ -41,3 +41,228 @@
 | LOW | H444724 | The management interface is allowing access from public IP addresses | The management interface is ether configured to use a public IP address or is allowing public address to access the Configuration Utility. |
 | LOW | H504022 | Detected a health monitor configuration that does not adhere to recommended best practices | F5 recommends that you configure most monitors with a timeout value of three times the interval value, plus one. This prevents the monitor from marking the node down before the system sends the last check. |
 | LOW | H701182 | Non-ASCII characters removed from Qkview XML files | Certain Non-ASCII characters cause parsing issues and prevent a 'qkview' file from being processed by iHealth. These characters are removed at upload time so that the 'qkview' file can be viewed in iHealth. This is strictly an issue in the 'qkview' file, not the system the 'qkview' file was generated from. |
+
+## Details
+
+<!-- Fixes Introduced In / CVE Identifiers come straight from the iHealth API
+     (fixedInVersions.version, results.h_cve_ids). Article Links / Related
+     Changes are both derived from results.solution, split by id prefix
+     ("K..." = KB article, anything else = related change ID) -- this repo
+     hasn't seen a CVE-flagged finding live yet to confirm that split, so
+     treat "Related Changes" as best-effort until validated against one. -->
+<details>
+<summary>D006068 — Login Banner Configuration Check</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K6068](https://my.f5.com/manage/s/article/K6068)
+- **Related Changes:** —
+</details>
+<details>
+<summary>D009908 — Idle-Logout Setting Configuration Check</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K9908](https://my.f5.com/manage/s/article/K9908)
+- **Related Changes:** —
+</details>
+<details>
+<summary>D012815 — Appliance mode not configured for BIG-IP system</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K12815](https://my.f5.com/manage/s/article/K12815)
+- **Related Changes:** —
+</details>
+<details>
+<summary>D015632 — Admin and Root Account Status Check</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K15632](https://my.f5.com/manage/s/article/K15632)
+- **Related Changes:** —
+</details>
+<details>
+<summary>D25301105 — Mitigate SLOWRead attacks by tuning TCP profile settings</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K25301105](https://my.f5.com/manage/s/article/K25301105)
+- **Related Changes:** —
+</details>
+<details>
+<summary>H52145254-6 — Indicators of Compromise (IoCs) are found on the system.</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K11438344](https://my.f5.com/manage/s/article/K11438344)
+- **Related Changes:** —
+</details>
+<details>
+<summary>H626151 — BIG-IP evaluation and demonstration licenses may expire</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K4679](https://my.f5.com/manage/s/article/K4679)
+- **Related Changes:** —
+</details>
+<details>
+<summary>H709036 — SSL certificates are expired, about to expire, or are not yet valid</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K8187](https://my.f5.com/manage/s/article/K8187), [K15664](https://my.f5.com/manage/s/article/K15664)
+- **Related Changes:** —
+</details>
+<details>
+<summary>H753774 — The BIG-IP GTM configuration is missing a listener object</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K5427](https://my.f5.com/manage/s/article/K5427)
+- **Related Changes:** —
+</details>
+<details>
+<summary>D014784 — BIG-IP Cookie Persistence Encryption not enabled</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K14784](https://my.f5.com/manage/s/article/K14784)
+- **Related Changes:** —
+</details>
+<details>
+<summary>D048704 — Certain BIG-IP non-production licenses may prevent further system upgrades</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K15643](https://my.f5.com/manage/s/article/K15643), [K15667](https://my.f5.com/manage/s/article/K15667)
+- **Related Changes:** —
+</details>
+<details>
+<summary>H383261 — The BIG-IP GTM system must use a local self IP address to define a server to represent the BIG-IP GTM system</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K15671](https://my.f5.com/manage/s/article/K15671)
+- **Related Changes:** —
+</details>
+<details>
+<summary>H494013 — A password policy is not configured or can be strengthened.</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K15497](https://my.f5.com/manage/s/article/K15497), [K5962](https://my.f5.com/manage/s/article/K5962)
+- **Related Changes:** —
+</details>
+<details>
+<summary>H726514 — There are not enough NTP servers either configured or reliably reachable, or the NTP daemon is not running</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K3122](https://my.f5.com/manage/s/article/K3122), [K10240](https://my.f5.com/manage/s/article/K10240)
+- **Related Changes:** —
+</details>
+<details>
+<summary>H770025 — F5 recommends removing orphaned configuration objects</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K15335](https://my.f5.com/manage/s/article/K15335)
+- **Related Changes:** —
+</details>
+<details>
+<summary>H770025-1 — F5 recommends removing orphaned configuration objects</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K15335](https://my.f5.com/manage/s/article/K15335), [K14620](https://my.f5.com/manage/s/article/K14620)
+- **Related Changes:** —
+</details>
+<details>
+<summary>H830235 — Cookie or universal persistence may fail for subsequent requests on Keep-Alive HTTP connections</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K7964](https://my.f5.com/manage/s/article/K7964)
+- **Related Changes:** —
+</details>
+<details>
+<summary>D014342 — Preserving or modifying HTTP response headers removed by the BIG-IP ASM system</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K14342](https://my.f5.com/manage/s/article/K14342)
+- **Related Changes:** —
+</details>
+<details>
+<summary>D061719 — Guided video demonstrations and free training for upgrading BIG-IP software</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K41125752](https://my.f5.com/manage/s/article/K41125752)
+- **Related Changes:** —
+</details>
+<details>
+<summary>D085949 — After the Good-Better-Best licensing was introduced in 2014, a license may have a restriction on the number of provisioned vCPUs allowed</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K14810](https://my.f5.com/manage/s/article/K14810)
+- **Related Changes:** —
+</details>
+<details>
+<summary>H380932 — Optional modules or features may be configurable but will not function unless licensed</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K16538](https://my.f5.com/manage/s/article/K16538)
+- **Related Changes:** —
+</details>
+<details>
+<summary>H391596 — BIG-IP LTM may send requests to unexpected pools for subsequent requests on Keep-Alive HTTP connections</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K9800](https://my.f5.com/manage/s/article/K9800), [K13753](https://my.f5.com/manage/s/article/K13753)
+- **Related Changes:** —
+</details>
+<details>
+<summary>H436234 — Avoid logging all requests for BIG-IP ASM virtual servers that run on VE platforms</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K42992723](https://my.f5.com/manage/s/article/K42992723)
+- **Related Changes:** —
+</details>
+<details>
+<summary>H441024 — Log levels are not set to the default value</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K5532](https://my.f5.com/manage/s/article/K5532)
+- **Related Changes:** —
+</details>
+<details>
+<summary>H444724 — The management interface is allowing access from public IP addresses</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K7312](https://my.f5.com/manage/s/article/K7312), [K13309](https://my.f5.com/manage/s/article/K13309)
+- **Related Changes:** —
+</details>
+<details>
+<summary>H504022 — Detected a health monitor configuration that does not adhere to recommended best practices</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K12531](https://my.f5.com/manage/s/article/K12531)
+- **Related Changes:** —
+</details>
+<details>
+<summary>H701182 — Non-ASCII characters removed from Qkview XML files</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** —
+- **Related Changes:** —
+</details>
