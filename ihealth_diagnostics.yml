@@ -9,10 +9,11 @@
 #                              report(s), regenerate the README index, push
 #
 # Secrets expected at runtime (from AWX credentials or --extra-vars):
-#   f5_username, f5_password             - BIG-IP account (qkview generation)
+#   f5_username, f5_password                 - BIG-IP account (qkview generation)
 #   ihealth_client_id, ihealth_client_secret - F5 iHealth API OAuth2 client
-#   git_pat                              - token with write access to the
-#                                           PUBLIC diagnostics repo
+#   tenable_access_key, tenable_secret_key   - Tenable.io / Tenable One API keys
+#   git_pat                                  - token with write access to the
+#                                               PUBLIC diagnostics repo
 #
 # Only the rendered Markdown report is ever pushed — the raw .qkview file
 # (full config/license dump) never leaves staging_dir. See README.md.
@@ -162,8 +163,8 @@
         ihealth_auth_header: "{{ token_response.json.token_type }} {{ token_response.json.access_token }}"
       no_log: true
 
-    - name: Upload, poll and render a report for each staged qkview
-      ansible.builtin.include_tasks: tasks/process_qkview.yml
+    - name: Upload, poll, enrich and render a report for each staged qkview
+      ansible.builtin.include_tasks: tasks/process_device.yml
       loop: "{{ staged.files }}"
       loop_control:
         loop_var: qkview_file

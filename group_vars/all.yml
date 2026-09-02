@@ -21,6 +21,12 @@ ihealth_poll_delay:   20
 qkview_poll_retries: 40
 qkview_poll_delay:   15
 
+# Tenable.io / Tenable One API (vulnerability export endpoint used to enrich
+# each device's report with live scan data, matched by hostname).
+tenable_api_host:     "cloud.tenable.com"
+tenable_poll_retries: 30
+tenable_poll_delay:   10
+
 # Destination diagnostics repository (NOT this repo). This one is PUBLIC — only
 # the rendered Markdown report is ever pushed here, never the raw qkview file.
 # Use the host/path WITHOUT the https:// — the play injects the token.

@@ -1,0 +1,48 @@
+---
+# Included once per staged qkview file (loop_var: qkview_file). Runs on localhost.
+# Matches the Tenable asset to this device by hostname -- ihealth_hostname was
+# already set as a fact by process_qkview.yml earlier in the same loop, so this
+# task file must run after it.
+
+- name: Kick off a Tenable.io vulnerability export for this host
+  ansible.builtin.uri:
+    url: "https://{{ tenable_api_host }}/vulns/export"
+    method: POST
+    headers:
+      X-ApiKeys: "accessKey={{ tenable_access_key }};secretKey={{ tenable_secret_key }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      filters:
+        host_or_asset: "{{ ihealth_hostname }}"
+    status_code: [200]
+  register: tenable_export
+  no_log: true
+
+- name: Wait for the Tenable export to finish
+  ansible.builtin.uri:
+    url: "https://{{ tenable_api_host }}/vulns/export/{{ tenable_export.json.export_uuid }}/status"
+    method: GET
+    headers:
+      X-ApiKeys: "accessKey={{ tenable_access_key }};secretKey={{ tenable_secret_key }}"
+    status_code: [200]
+  register: tenable_status
+  until: tenable_status.json.status == "FINISHED"
+  retries: "{{ tenable_poll_retries }}"
+  delay: "{{ tenable_poll_delay }}"
+  no_log: true
+
+- name: Fetch each export chunk
+  ansible.builtin.uri:
+    url: "https://{{ tenable_api_host }}/vulns/export/{{ tenable_export.json.export_uuid }}/chunks/{{ item }}"
+    method: GET
+    headers:
+      X-ApiKeys: "accessKey={{ tenable_access_key }};secretKey={{ tenable_secret_key }}"
+    status_code: [200]
+  register: tenable_chunks
+  loop: "{{ tenable_status.json.chunks_available | default([]) }}"
+  no_log: true
+
+- name: Record this host's Tenable findings for the report template
+  ansible.builtin.set_fact:
+    tenable_findings: "{{ tenable_chunks.results | default([]) | map(attribute='json') | flatten }}"

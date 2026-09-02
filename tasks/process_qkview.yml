@@ -57,11 +57,3 @@
     path: "{{ staging_dir }}/reports"
     state: directory
     mode: "0750"
-
-- name: Render the sorted diagnostics table
-  ansible.builtin.template:
-    src: diagnostics_table.md.j2
-    dest: "{{ staging_dir }}/reports/{{ ihealth_hostname }}-{{ backup_date }}.md"
-    mode: "0640"
-  vars:
-    diagnostics_list: "{{ diagnostics_result.json.diagnostics.diagnostic }}"
