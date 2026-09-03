@@ -12,6 +12,12 @@
 # scanID=<...>, or via GET /scans) -- required alongside the uuid because the
 # export endpoint is scoped by scan_id in the path.
 
+- name: Ensure the local staging directory exists
+  ansible.builtin.file:
+    path: "{{ staging_dir }}"
+    state: directory
+    mode: "0750"
+
 - name: Kick off a Tenable.io export for this scan run
   ansible.builtin.uri:
     url: "https://{{ tenable_api_host }}/scans/{{ tenable_scan_id }}/export"
@@ -22,7 +28,7 @@
     body_format: json
     body:
       history_uuid: "{{ tenable_scan_uuid }}"
-      format: json
+      format: csv # /scans/{id}/export only supports nessus/html/pdf/csv/db -- json is rejected (400)
     status_code: [200, 400, 401, 403, 404, 409, 422]
   register: tenable_export
   no_log: true
@@ -56,20 +62,72 @@
   delay: "{{ tenable_poll_delay }}"
   no_log: true
 
-- name: Download the finished scan export
+- name: Download the finished scan export to disk
   ansible.builtin.uri:
     url: "https://{{ tenable_api_host }}/scans/{{ tenable_scan_id }}/export/{{ tenable_export.json.file }}/download"
     method: GET
     headers:
       X-ApiKeys: "accessKey={{ tenable_access_key }};secretKey={{ tenable_secret_key }}"
+    dest: "{{ staging_dir }}/tenable-{{ ihealth_hostname }}.csv"
     status_code: [200]
   register: tenable_download
   no_log: true
 
+# The scan export endpoint only returns CSV (see the format note above), so
+# parse it here rather than trying to coerce it into the JSON shape the
+# report template expects. Column names come from Tenable's default CSV
+# export layout; if a real export uses different headers, this raises a
+# clear error naming the file to inspect rather than failing silently.
+- name: Parse the Tenable CSV export and filter to this host
+  ansible.builtin.shell: |
+    set -euo pipefail
+    python3 - "{{ staging_dir }}/tenable-{{ ihealth_hostname }}.csv" "{{ ihealth_hostname }}" <<'PYEOF'
+    import csv, json, sys
+
+    path, hostname = sys.argv[1], sys.argv[2].lower()
+
+    def get(row, *names):
+        for n in names:
+            for key in row:
+                if key.lower() == n.lower():
+                    return row[key]
+        return None
+
+    findings = []
+    with open(path, newline="", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        if reader.fieldnames is None:
+            print(json.dumps({"__error__": "no columns found in export -- see " + path}))
+            sys.exit(0)
+        for row in reader:
+            host = (get(row, "Host") or "").lower()
+            if host and host != hostname:
+                continue
+            cve_raw = get(row, "CVE") or ""
+            cves = [c.strip() for c in cve_raw.split(",") if c.strip()]
+            findings.append({
+                "severity": get(row, "Risk") or "UNKNOWN",
+                "state": "Active",
+                "asset": {"hostname": get(row, "Host") or hostname},
+                "plugin": {
+                    "id": get(row, "Plugin ID", "Plugin"),
+                    "cve": cves,
+                    "vpr": {"score": get(row, "VPR Score", "VPR")},
+                    "cvss3_base_score": get(row, "CVSS v3.0 Base Score", "CVSS V3 Base Score", "CVSS"),
+                },
+            })
+    print(json.dumps(findings))
+    PYEOF
+  args:
+    executable: /bin/bash
+  register: tenable_csv_parsed
+  changed_when: false
+
+- name: Fail clearly if the CSV columns didn't match what we expected
+  ansible.builtin.fail:
+    msg: "{{ (tenable_csv_parsed.stdout | from_json).__error__ }}"
+  when: "'__error__' in (tenable_csv_parsed.stdout | from_json)"
+
 - name: Record this host's Tenable findings for the report template
   ansible.builtin.set_fact:
-    tenable_findings: >-
-      {{ (tenable_download.json.vulnerabilities | default(tenable_download.json))
-         | selectattr('asset.hostname', 'defined')
-         | selectattr('asset.hostname', 'equalto', ihealth_hostname)
-         | list }}
+    tenable_findings: "{{ tenable_csv_parsed.stdout | from_json }}"
