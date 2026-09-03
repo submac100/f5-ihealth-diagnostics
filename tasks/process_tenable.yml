@@ -1,0 +1,59 @@
+---
+# Included once per staged qkview file (loop_var: qkview_file). Runs on localhost.
+# Matches the Tenable asset to this device by hostname -- ihealth_hostname was
+# already set as a fact by process_qkview.yml earlier in the same loop, so this
+# task file must run after it.
+#
+# Pinned to one specific completed scan run via tenable_scan_uuid (the history
+# UUID from that scan's History tab in the Tenable console -- see README) rather
+# than pulling the asset's latest vulnerability state across all scans.
+#
+# tenable_scan_id is the scan's numeric id (visible in the console URL as
+# scanID=<...>, or via GET /scans) -- required alongside the uuid because the
+# export endpoint is scoped by scan_id in the path.
+
+- name: Kick off a Tenable.io export for this scan run
+  ansible.builtin.uri:
+    url: "https://{{ tenable_api_host }}/scans/{{ tenable_scan_id }}/export"
+    method: POST
+    headers:
+      X-ApiKeys: "accessKey={{ tenable_access_key }};secretKey={{ tenable_secret_key }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      history_uuid: "{{ tenable_scan_uuid }}"
+      format: json
+    status_code: [200]
+  register: tenable_export
+  no_log: true
+
+- name: Wait for the Tenable scan export to finish
+  ansible.builtin.uri:
+    url: "https://{{ tenable_api_host }}/scans/{{ tenable_scan_id }}/export/{{ tenable_export.json.file }}/status"
+    method: GET
+    headers:
+      X-ApiKeys: "accessKey={{ tenable_access_key }};secretKey={{ tenable_secret_key }}"
+    status_code: [200]
+  register: tenable_status
+  until: tenable_status.json.status == "ready"
+  retries: "{{ tenable_poll_retries }}"
+  delay: "{{ tenable_poll_delay }}"
+  no_log: true
+
+- name: Download the finished scan export
+  ansible.builtin.uri:
+    url: "https://{{ tenable_api_host }}/scans/{{ tenable_scan_id }}/export/{{ tenable_export.json.file }}/download"
+    method: GET
+    headers:
+      X-ApiKeys: "accessKey={{ tenable_access_key }};secretKey={{ tenable_secret_key }}"
+    status_code: [200]
+  register: tenable_download
+  no_log: true
+
+- name: Record this host's Tenable findings for the report template
+  ansible.builtin.set_fact:
+    tenable_findings: >-
+      {{ (tenable_download.json.vulnerabilities | default(tenable_download.json))
+         | selectattr('asset.hostname', 'defined')
+         | selectattr('asset.hostname', 'equalto', ihealth_hostname)
+         | list }}

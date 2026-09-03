@@ -21,6 +21,18 @@ ihealth_poll_delay:   20
 qkview_poll_retries: 40
 qkview_poll_delay:   15
 
+# Tenable.io / Tenable One API (scan export endpoint used to enrich each
+# device's report with live scan data, matched by hostname).
+tenable_api_host:     "cloud.tenable.com"
+tenable_poll_retries: 30
+tenable_poll_delay:   10
+
+# The specific completed scan run to pull results from. Both values come from
+# the scan's History tab URL in the console, e.g.:
+#   .../scan-details/<scan_id>/<scan_uuid>/history
+tenable_scan_id:   73
+tenable_scan_uuid: "b7040254-abf5-4cb3-aaa4-c5f4f7671f13"
+
 # Destination diagnostics repository (NOT this repo). This one is PUBLIC — only
 # the rendered Markdown report is ever pushed here, never the raw qkview file.
 # Use the host/path WITHOUT the https:// — the play injects the token.

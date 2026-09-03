@@ -21,10 +21,19 @@
 {% endfor -%}
 {{ ns.out | join(', ') if ns.out | length > 0 else '—' }}
 {%- endmacro %}
+{% set tenable_findings = tenable_findings | default([]) -%}
+{% macro tenable_cves(v) -%}
+{% set c = v.plugin.cve | default([]) -%}
+{{ (c if c is string else c | join(', ')) if c else '—' }}
+{%- endmacro %}
 # iHealth Diagnostics — {{ ihealth_hostname }}
 
 - **Date:** {{ backup_date }}
 - **QKView ID:** {{ qkview_id }}
+{% if tenable_findings | length > 0 %}
+- **Tenable One Scan ID:** {{ tenable_export.json.export_uuid | default('n/a') }}
+- **Tenable One Scan Date:** {{ backup_date }}
+{% endif %}
 
 {% set diagnostics_sorted = (diagnostics_list | selectattr('run_data.h_importance', 'equalto', 'CRITICAL') | list)
                            + (diagnostics_list | selectattr('run_data.h_importance', 'equalto', 'HIGH') | list)
@@ -46,7 +55,43 @@
 {% set summary = clean(d.results.h_summary) | replace('\n', ' ') | replace('|', '\\|') -%}
 | {{ d.run_data.h_importance }} | [{{ d.name }}](#finding-{{ d.name | lower }}) | {{ clean(d.results.h_header) }} | {{ summary }} |
 {% endfor %}
+{% if tenable_findings | length > 0 %}
+## Tenable One Vulnerability Scan
 
+Findings pulled from Tenable.io/Tenable One, matched to this device by hostname, cross-referenced
+against the iHealth diagnostics above.
+
+{% set ns_ih = namespace(cves=[]) -%}
+{% for d in diagnostics_sorted -%}
+{% set cve_ids = d.results.h_cve_ids -%}
+{% if cve_ids -%}
+{% for c in (cve_ids if cve_ids is not string else [cve_ids]) -%}
+{% set ns_ih.cves = ns_ih.cves + [c] -%}
+{% endfor -%}
+{% endif -%}
+{% endfor -%}
+{% set ns_ten = namespace(cves=[]) -%}
+{% for v in tenable_findings -%}
+{% set v_cves = v.plugin.cve | default([]) -%}
+{% set v_cves = [v_cves] if v_cves is string else v_cves -%}
+{% set ns_ten.cves = ns_ten.cves + v_cves -%}
+{% endfor -%}
+| Severity | CVE | Plugin ID | VPR | CVSSv3 | Source | State |
+|----------|-----|-----------|-----|--------|--------|-------|
+{% for v in tenable_findings -%}
+{% set v_cves = v.plugin.cve | default([]) -%}
+{% set v_cves = [v_cves] if v_cves is string else v_cves -%}
+{% set confirmed = (v_cves | select('in', ns_ih.cves) | list | length > 0) -%}
+| {{ v.severity | default('UNKNOWN') | upper }} | {{ tenable_cves(v) }} | {{ v.plugin.id | default('—') }} | {{ v.plugin.vpr.score | default('—') }} | {{ v.plugin.cvss3_base_score | default('—') }} | {{ 'Confirmed (iHealth + Tenable)' if confirmed else 'Tenable-only' }} | {{ v.state | default('—') }} |
+{% endfor %}
+{% for d in diagnostics_sorted -%}
+{% set cve_ids = d.results.h_cve_ids -%}
+{% set d_cves = (cve_ids if cve_ids is not string else [cve_ids]) if cve_ids else [] -%}
+{% if d_cves | length > 0 and (d_cves | select('in', ns_ten.cves) | list | length == 0) %}
+**Note on `{{ d_cves | join(', ') }}` ({{ d.name }}):** flagged by iHealth diagnostics but not returned in the Tenable One scan for this host — likely not remotely detectable via network scanning. Treat as **iHealth-only** until confirmed otherwise.
+{% endif -%}
+{% endfor %}
+{% endif %}
 ## Details
 
 <!-- Fixes Introduced In / CVE Identifiers come straight from the iHealth API
@@ -59,6 +104,16 @@
 {% set solution = d.results.solution | default([]) -%}
 {% set fixed_in = d.fixedInVersions.version | default([]) if d.fixedInVersions is defined else [] -%}
 {% set cve_ids = d.results.h_cve_ids -%}
+{% set d_cves = (cve_ids if cve_ids is not string else [cve_ids]) if cve_ids else [] -%}
+{% set matches = tenable_findings | selectattr('plugin.cve', 'defined') | list -%}
+{% set matched = [] -%}
+{% for v in matches -%}
+{% set v_cves = v.plugin.cve | default([]) -%}
+{% set v_cves = [v_cves] if v_cves is string else v_cves -%}
+{% if d_cves | select('in', v_cves) | list | length > 0 -%}
+{% set _ = matched.append(v) -%}
+{% endif -%}
+{% endfor -%}
 <details id="finding-{{ d.name | lower }}">
 <summary>{{ d.name }} — {{ clean(d.results.h_header) }}</summary>
 
@@ -66,5 +121,12 @@
 - **CVE Identifiers:** {{ (cve_ids if cve_ids is string else cve_ids | join(', ')) if cve_ids else '—' }}
 - **Article Links:** {{ links_list(solution) }}
 - **Related Changes:** {{ ids_list(solution) }}
+{% if tenable_findings | length > 0 -%}
+{% if matched | length > 0 -%}
+- **Tenable One:** Plugin {{ matched[0].plugin.id | default('—') }}, VPR {{ matched[0].plugin.vpr.score | default('—') }}, CVSSv3 {{ matched[0].plugin.cvss3_base_score | default('—') }}, state {{ matched[0].state | default('—') }} — confirmed via network scan
+{% else -%}
+- **Tenable One:** Not observed in this scan (iHealth-only, config-review advisory)
+{% endif -%}
+{% endif -%}
 </details>
 {% endfor %}

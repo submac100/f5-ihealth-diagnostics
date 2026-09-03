@@ -1,0 +1,17 @@
+---
+# Included once per staged qkview file (loop_var: qkview_file). Runs on localhost.
+# Chains the two data sources for this device, then renders one report from both.
+
+- name: Upload to iHealth and fetch diagnostics
+  ansible.builtin.include_tasks: process_qkview.yml
+
+- name: Pull Tenable One vulnerability data for this device
+  ansible.builtin.include_tasks: process_tenable.yml
+
+- name: Render the combined diagnostics + vulnerability report
+  ansible.builtin.template:
+    src: diagnostics_table.md.j2
+    dest: "{{ staging_dir }}/reports/{{ ihealth_hostname }}-{{ backup_date }}.md"
+    mode: "0640"
+  vars:
+    diagnostics_list: "{{ diagnostics_result.json.diagnostics.diagnostic }}"
