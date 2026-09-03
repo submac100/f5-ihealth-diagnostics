@@ -23,9 +23,23 @@
     body:
       history_uuid: "{{ tenable_scan_uuid }}"
       format: json
-    status_code: [200]
+    status_code: [200, 400, 401, 403, 404, 409, 422]
   register: tenable_export
   no_log: true
+
+# Deliberately NOT no_log: only status + the response body (Tenable's own
+# error message) are shown here -- never the request, so the API keys in the
+# headers above never reach the job output.
+- name: Show the Tenable export response for troubleshooting
+  ansible.builtin.debug:
+    msg:
+      status: "{{ tenable_export.status }}"
+      body: "{{ tenable_export.json | default(tenable_export.content) | default('(no body)') }}"
+
+- name: Fail clearly if the export request was not accepted
+  ansible.builtin.fail:
+    msg: "Tenable export request failed with status {{ tenable_export.status }} -- see the response above."
+  when: tenable_export.status != 200
 
 - name: Wait for the Tenable scan export to finish
   ansible.builtin.uri:
