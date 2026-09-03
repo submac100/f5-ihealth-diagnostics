@@ -144,24 +144,7 @@
       failed_when: staged.matched == 0
 
     - name: Get an iHealth API OAuth2 token
-      ansible.builtin.uri:
-        url: "{{ ihealth_token_url }}"
-        method: POST
-        headers:
-          Authorization: "Basic {{ (ihealth_client_id + ':' + ihealth_client_secret) | b64encode }}"
-          Content-Type: "application/x-www-form-urlencoded"
-        body_format: form-urlencoded
-        body:
-          grant_type: client_credentials
-          scope: ihealth
-        status_code: [200]
-      register: token_response
-      no_log: true
-
-    - name: Set the iHealth auth header
-      ansible.builtin.set_fact:
-        ihealth_auth_header: "{{ token_response.json.token_type }} {{ token_response.json.access_token }}"
-      no_log: true
+      ansible.builtin.include_tasks: tasks/get_ihealth_token.yml
 
     - name: Upload, poll, enrich and render a report for each staged qkview
       ansible.builtin.include_tasks: tasks/process_device.yml

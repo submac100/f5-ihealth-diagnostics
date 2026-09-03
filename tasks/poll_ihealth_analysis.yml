@@ -1,0 +1,41 @@
+---
+# Polls qkview_url until iHealth finishes analyzing it. Recurses (via the
+# rescue block below) up to ihealth_poll_max_cycles times, refreshing the
+# OAuth2 token between cycles -- the token can expire mid-poll on a
+# slow/large qkview, which previously surfaced as an opaque 401 after the
+# full retry budget was exhausted. Total wait time is unchanged: it's the
+# same ihealth_poll_retries * ihealth_poll_delay budget, just split across
+# cycles so a stale token doesn't fail the whole run.
+
+- name: "Poll iHealth analysis status (cycle {{ ihealth_poll_cycle | default(1) }}/{{ ihealth_poll_max_cycles }})"
+  block:
+    - name: Wait for iHealth to finish analyzing the qkview
+      ansible.builtin.uri:
+        url: "{{ qkview_url }}"
+        method: GET
+        headers:
+          Authorization: "{{ ihealth_auth_header }}"
+          Accept: "application/vnd.f5.ihealth.api+json"
+        status_code: [200, 202, 401]
+      register: poll_result
+      until: poll_result.status in [200, 401]
+      retries: "{{ ihealth_poll_retries }}"
+      delay: "{{ ihealth_poll_delay }}"
+
+    - name: Treat a 401 as a stale token, not success
+      ansible.builtin.fail:
+        msg: "iHealth token expired mid-poll (401) -- refreshing and retrying."
+      when: poll_result.status == 401
+  rescue:
+    - name: Give up if we've exhausted the refresh cycles
+      ansible.builtin.fail:
+        msg: "iHealth polling did not complete after {{ ihealth_poll_max_cycles }} token-refresh cycles."
+      when: (ihealth_poll_cycle | default(1) | int) >= ihealth_poll_max_cycles
+
+    - name: Refresh the iHealth OAuth2 token
+      ansible.builtin.include_tasks: get_ihealth_token.yml
+
+    - name: Retry polling with the refreshed token
+      ansible.builtin.include_tasks: poll_ihealth_analysis.yml
+      vars:
+        ihealth_poll_cycle: "{{ (ihealth_poll_cycle | default(1) | int) + 1 }}"

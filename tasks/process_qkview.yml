@@ -24,18 +24,8 @@
   ansible.builtin.set_fact:
     qkview_url: "{{ upload_result.location }}"
 
-- name: Wait for iHealth to finish analyzing the qkview
-  ansible.builtin.uri:
-    url: "{{ qkview_url }}"
-    method: GET
-    headers:
-      Authorization: "{{ ihealth_auth_header }}"
-      Accept: "application/vnd.f5.ihealth.api+json"
-    status_code: [200, 202]
-  register: poll_result
-  until: poll_result.status == 200
-  retries: "{{ ihealth_poll_retries }}"
-  delay: "{{ ihealth_poll_delay }}"
+- name: Poll iHealth for analysis completion, refreshing the token if needed
+  ansible.builtin.include_tasks: poll_ihealth_analysis.yml
 
 - name: Record qkview id and hostname
   ansible.builtin.set_fact:

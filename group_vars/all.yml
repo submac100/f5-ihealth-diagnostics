@@ -16,6 +16,11 @@ ihealth_api_host:  "ihealth2-api.f5.com"
 ihealth_poll_retries: 90
 ihealth_poll_delay:   20
 
+# If the OAuth2 token expires mid-poll (~observed after ~30 min on a slow
+# analysis), poll_ihealth_analysis.yml refreshes it and retries the same
+# poll budget again, up to this many cycles, rather than failing outright.
+ihealth_poll_max_cycles: 3
+
 # On-device qkview generation polling (separate from the iHealth polling
 # above). 40 * 15s gives qkview generation up to 10 minutes to complete.
 qkview_poll_retries: 40
