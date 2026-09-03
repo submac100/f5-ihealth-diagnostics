@@ -94,13 +94,18 @@
         return None
 
     findings = []
+    hosts_seen = set()
+    total_rows = 0
     with open(path, newline="", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         if reader.fieldnames is None:
             print(json.dumps({"__error__": "no columns found in export -- see " + path}))
             sys.exit(0)
         for row in reader:
+            total_rows += 1
             host = (get(row, "Host") or "").lower()
+            if host:
+                hosts_seen.add(host)
             if host and host != hostname:
                 continue
             cve_raw = get(row, "CVE") or ""
@@ -116,7 +121,15 @@
                     "cvss3_base_score": get(row, "CVSS v3.0 Base Score", "CVSS V3 Base Score", "CVSS"),
                 },
             })
-    print(json.dumps(findings))
+    print(json.dumps({
+        "findings": findings,
+        "diag": {
+            "columns": reader.fieldnames,
+            "total_rows": total_rows,
+            "hosts_seen": sorted(hosts_seen),
+            "filtered_for": hostname,
+        },
+    }))
     PYEOF
   args:
     executable: /bin/bash
@@ -128,6 +141,10 @@
     msg: "{{ (tenable_csv_parsed.stdout | from_json).__error__ }}"
   when: "'__error__' in (tenable_csv_parsed.stdout | from_json)"
 
+- name: Show CSV parse diagnostics (columns found, hosts seen, row count)
+  ansible.builtin.debug:
+    var: (tenable_csv_parsed.stdout | from_json).diag
+
 - name: Record this host's Tenable findings for the report template
   ansible.builtin.set_fact:
-    tenable_findings: "{{ tenable_csv_parsed.stdout | from_json }}"
+    tenable_findings: "{{ (tenable_csv_parsed.stdout | from_json).findings }}"
