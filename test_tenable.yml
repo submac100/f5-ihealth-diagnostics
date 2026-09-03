@@ -1,0 +1,30 @@
+# Standalone proof-of-concept for the Tenable One integration, isolated from
+# the qkview/iHealth cycle so it can be iterated on in seconds rather than
+# waiting through a full ~30 minute run.
+#
+# Run as its own AWX job template: same project, playbook = test_tenable.yml,
+# no inventory/BIG-IP credential needed, just the Tenable.io API credential
+# attached. Override ihealth_hostname via extra vars to match whatever
+# hostname Tenable actually has the asset under (defaults to the lab device
+# used elsewhere in this repo).
+#
+# Secrets expected at runtime (from AWX credentials or --extra-vars):
+#   tenable_access_key, tenable_secret_key - Tenable.io / Tenable One API keys
+
+- name: Test the Tenable One vulnerability export in isolation
+  hosts: localhost
+  gather_facts: false
+  vars:
+    ihealth_hostname: "{{ tenable_test_hostname | default('bigip-lab-01') }}"
+
+  tasks:
+    - name: Pull Tenable One vulnerability data for this host
+      ansible.builtin.include_tasks: tasks/process_tenable.yml
+
+    - name: Show what was found
+      ansible.builtin.debug:
+        msg: "{{ tenable_findings | length }} finding(s) matched for {{ ihealth_hostname }}"
+
+    - name: Show the raw findings
+      ansible.builtin.debug:
+        var: tenable_findings
