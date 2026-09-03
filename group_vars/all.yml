@@ -21,11 +21,19 @@ ihealth_poll_delay:   20
 qkview_poll_retries: 40
 qkview_poll_delay:   15
 
-# Tenable.io / Tenable One API (vulnerability export endpoint used to enrich
-# each device's report with live scan data, matched by hostname).
+# Tenable.io / Tenable One API (scan export endpoint used to enrich each
+# device's report with live scan data, matched by hostname).
 tenable_api_host:     "cloud.tenable.com"
 tenable_poll_retries: 30
 tenable_poll_delay:   10
+
+# The specific completed scan run to pull results from. tenable_scan_uuid is
+# the history UUID from that scan's History tab in the console (or the
+# scanID= value in its results URL). tenable_scan_id is the scan's numeric id
+# from the same URL / GET /scans -- both are required since the export
+# endpoint is scoped by scan_id in the path. Override tenable_scan_id per
+# environment via AWX extra vars or a survey; it has no safe default.
+tenable_scan_uuid: "b7040254-abf5-4cb3-aaa4-c5f4f7671f13"
 
 # Destination diagnostics repository (NOT this repo). This one is PUBLIC — only
 # the rendered Markdown report is ever pushed here, never the raw qkview file.
