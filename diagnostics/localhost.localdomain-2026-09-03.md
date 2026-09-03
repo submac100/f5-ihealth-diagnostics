@@ -1,13 +1,13 @@
 # iHealth Diagnostics — localhost.localdomain
 
 - **Date:** 2026-09-03
-- **QKView ID:** 26808463
+- **QKView ID:** 26809091
 
 | Severity | Count |
 |----------|-------|
 | Critical | 0 |
-| High     | 10 |
-| Medium   | 9 |
+| High     | 11 |
+| Medium   | 8 |
 | Low      | 12 |
 
 ## Findings
@@ -20,6 +20,7 @@
 | HIGH | [D012815](#finding-d012815) | Appliance mode not configured for BIG-IP system | Appliance mode locks down administrative access by restricting certain functionality, including shell access and advanced system-level configurations. This enhances security and operational compliance for environments requiring stricter controls. |
 | HIGH | [D015632](#finding-d015632) | Admin and Root Account Status Check | This diagnostic verifies whether the administrative account is disabled and assesses the status of the root account. Disabled accounts improve security by minimizing access to critical systems. |
 | HIGH | [D25301105](#finding-d25301105) | Mitigate SLOWRead attacks by tuning TCP profile settings | SLOWRead attacks exploit low-speed data transfer to exhaust server resources. Adjust TCP profile settings, including receive window size and idle timeout values, to mitigate this threat on BIG-IP systems. |
+| HIGH | [H517352](#finding-h517352) | Out of Memory Killer was invoked. Possible memory issues present | The kern.log file contains evidence that the device was under memory pressure and invoked oom-killer in an attempt to free memory. |
 | HIGH | [H52145254-6](#finding-h52145254-6) | Indicators of Compromise (IoCs) are found on the system. | This information is based on evidence that F5 has observed on compromised devices, which F5 feels are reliable indicators. It is important to note that exploited systems might not all show the same indicators, and a skilled attacker may be able to remove traces of their work. It is not possible to prove a device has not been compromised; when there is any uncertainty, you should consider the device compromised. |
 | HIGH | [H626151](#finding-h626151) | BIG-IP evaluation and demonstration licenses may expire | Production BIG-IP system license files do not expire; however, evaluation or demonstration BIG-IP licenses do expire. This applies to add-on module evaluation licenses for all modules. If you convert an evaluation or demonstration BIG-IP system to a production BIG-IP system, you must activate the new BIG-IP production license. |
 | HIGH | [H709036](#finding-h709036) | SSL certificates are expired, about to expire, or are not yet valid | SSL certificates have specific date ranges that identify when they are valid. The following output lists expired, nearly expired, and not yet valid certificates, grouped by their status and whether they are in use by a BIG-IP traffic object. Please note that in qkview files generated on BIG-IP 11.x systems, this diagnostic does not calculate whether SSL certificates are not yet valid. |
@@ -28,7 +29,6 @@
 | MEDIUM | [D048704](#finding-d048704) | Certain BIG-IP non-production licenses may prevent further system upgrades | Starting with BIG-IP 11.4.1, customers can purchase all BIG-IP Virtual Edition (VE) SKUs with Version Plus licenses. Version Plus licenses enable customers to use BIG-IP VE with perpetual usage. However, upgrades are limited to software versions within a pre-established range of software releases. |
 | MEDIUM | [H383261](#finding-h383261) | The BIG-IP GTM system must use a local self IP address to define a server to represent the BIG-IP GTM system | BIG-IP GTM must have a BIG-IP system server defined to represent the BIG-IP GTM system. The server definition must contain at least one local self IP address. |
 | MEDIUM | [H494013](#finding-h494013) | A password policy is not configured or can be strengthened. | F5 recommends that you configure a secure password policy for the BIG-IP system. |
-| MEDIUM | [H517352](#finding-h517352) | Out of Memory Killer was invoked. Possible memory issues present | The kern.log file contains evidence that the device was under memory pressure and invoked oom-killer in an attempt to free memory. |
 | MEDIUM | [H726514](#finding-h726514) | There are not enough NTP servers either configured or reliably reachable, or the NTP daemon is not running | F5 recommends that you configure at least three external NTP servers. If fewer than three Network Time Protocol (NTP) servers are reachable, the system will not be able to reliably detect incorrect time sources. |
 | MEDIUM | [H770025](#finding-h770025) | F5 recommends removing orphaned configuration objects | Over the course of a system's operation, various configuration objects may become orphaned as they are created and then abandoned to accommodate changing business or application needs. While orphaned configuration objects do not initially cause problems, if allowed to accumulate, you can eventually encounter some of the following issues : performance degradation, increased memory and CPU utilization, and hindered administration from unnecessarily large configurations that can result in configuration conflicts such as IP address or object name conflicts. |
 | MEDIUM | [H770025-1](#finding-h770025-1) | F5 recommends removing orphaned configuration objects | Over the course of a system's operation, various configuration objects may become orphaned as they are created and then abandoned to accommodate changing business or application needs. While orphaned configuration objects do not initially cause problems, if allowed to accumulate, you can eventually encounter some of the following issues : performance degradation, increased memory and CPU utilization, and hindered administration from unnecessarily large configurations that can result in configuration conflicts such as IP address or object name conflicts. |
@@ -102,6 +102,14 @@
 - **Article Links:** [K25301105](https://my.f5.com/manage/s/article/K25301105)
 - **Related Changes:** —
 </details>
+<details id="finding-h517352">
+<summary>H517352 — Out of Memory Killer was invoked. Possible memory issues present</summary>
+
+- **Fixes Introduced In:** —
+- **CVE Identifiers:** —
+- **Article Links:** [K16419](https://my.f5.com/manage/s/article/K16419), [K47241910](https://my.f5.com/manage/s/article/K47241910)
+- **Related Changes:** —
+</details>
 <details id="finding-h52145254-6">
 <summary>H52145254-6 — Indicators of Compromise (IoCs) are found on the system.</summary>
 
@@ -164,14 +172,6 @@
 - **Fixes Introduced In:** —
 - **CVE Identifiers:** —
 - **Article Links:** [K15497](https://my.f5.com/manage/s/article/K15497), [K5962](https://my.f5.com/manage/s/article/K5962)
-- **Related Changes:** —
-</details>
-<details id="finding-h517352">
-<summary>H517352 — Out of Memory Killer was invoked. Possible memory issues present</summary>
-
-- **Fixes Introduced In:** —
-- **CVE Identifiers:** —
-- **Article Links:** [K16419](https://my.f5.com/manage/s/article/K16419), [K47241910](https://my.f5.com/manage/s/article/K47241910)
 - **Related Changes:** —
 </details>
 <details id="finding-h726514">
