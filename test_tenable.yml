@@ -4,9 +4,10 @@
 #
 # Run as its own AWX job template: same project, playbook = test_tenable.yml,
 # no inventory/BIG-IP credential needed, just the Tenable.io API credential
-# attached. Override ihealth_hostname via extra vars to match whatever
-# hostname Tenable actually has the asset under (defaults to the lab device
-# used elsewhere in this repo).
+# attached. Override ihealth_hostname / tenable_test_ip via extra vars to
+# match whatever identifiers Tenable actually has the asset under (defaults
+# confirmed live against the lab device -- job_330 -- which Tenable reports
+# by IP, not hostname).
 #
 # Secrets expected at runtime (from AWX credentials or --extra-vars):
 #   tenable_access_key, tenable_secret_key - Tenable.io / Tenable One API keys
@@ -16,6 +17,7 @@
   gather_facts: false
   vars:
     ihealth_hostname: "{{ tenable_test_hostname | default('bigip-lab-01') }}"
+    tenable_match_identifiers: "{{ [ihealth_hostname] + [tenable_test_ip | default('192.168.1.98')] }}"
 
   tasks:
     - name: Pull Tenable One vulnerability data for this host

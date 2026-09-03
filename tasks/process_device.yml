@@ -5,6 +5,21 @@
 - name: Upload to iHealth and fetch diagnostics
   ansible.builtin.include_tasks: process_qkview.yml
 
+# qkview_remote_name/qkview_name in Play 1 are built as "{{ inventory_hostname
+# }}-{{ backup_date }}", so strip the date suffix back off the staged
+# filename to recover which inventory host this came from, and pull its
+# management IP from hostvars -- Tenable identifies assets by IP, not the
+# BIG-IP hostname iHealth reports (confirmed live: job_330).
+- name: Determine the source device's inventory hostname and IP
+  ansible.builtin.set_fact:
+    tenable_match_identifiers: >-
+      {{ [ihealth_hostname]
+         + ([hostvars[device_inventory_hostname].ansible_host]
+            if device_inventory_hostname in hostvars and hostvars[device_inventory_hostname].ansible_host is defined
+            else []) }}
+  vars:
+    device_inventory_hostname: "{{ (qkview_file.path | basename | replace('.qkview', '')) | regex_replace('-' + backup_date + '$', '') }}"
+
 - name: Pull Tenable One vulnerability data for this device
   ansible.builtin.include_tasks: process_tenable.yml
 

@@ -73,18 +73,29 @@
   register: tenable_download
   no_log: true
 
+# Tenable's scan CSV identifies assets by whatever it discovered them as --
+# usually the IP, not the BIG-IP hostname iHealth knows it by (confirmed live:
+# job_330 found 115 rows all under Host=192.168.1.98, matched against
+# ihealth_hostname="bigip-lab-01" -> 0 results). Match against Host, IP
+# Address and FQDN together, against every identifier we have for the device.
+#
+# tenable_match_identifiers defaults to just ihealth_hostname; pass additional
+# identifiers (management IP, FQDN) via that var when calling this task file
+# to also match on those.
+#
 # The scan export endpoint only returns CSV (see the format note above), so
 # parse it here rather than trying to coerce it into the JSON shape the
-# report template expects. Column names come from Tenable's default CSV
-# export layout; if a real export uses different headers, this raises a
-# clear error naming the file to inspect rather than failing silently.
-- name: Parse the Tenable CSV export and filter to this host
+# report template expects. Column names below were confirmed against a real
+# export (job_330); if a future export differs, this raises a clear error
+# naming the file to inspect rather than failing silently.
+- name: Parse the Tenable CSV export and filter to this device
   ansible.builtin.shell: |
     set -euo pipefail
-    python3 - "{{ staging_dir }}/tenable-{{ ihealth_hostname }}.csv" "{{ ihealth_hostname }}" <<'PYEOF'
+    python3 - "{{ staging_dir }}/tenable-{{ ihealth_hostname }}.csv" "{{ (tenable_match_identifiers | default([ihealth_hostname])) | join(',') }}" <<'PYEOF'
     import csv, json, sys
 
-    path, hostname = sys.argv[1], sys.argv[2].lower()
+    path = sys.argv[1]
+    identifiers = {i.strip().lower() for i in sys.argv[2].split(",") if i.strip()}
 
     def get(row, *names):
         for n in names:
@@ -92,6 +103,13 @@
                 if key.lower() == n.lower():
                     return row[key]
         return None
+
+    def row_identifiers(row):
+        return {
+            (get(row, "Host") or "").lower(),
+            (get(row, "IP Address") or "").lower(),
+            (get(row, "FQDN") or "").lower(),
+        } - {""}
 
     findings = []
     hosts_seen = set()
@@ -103,22 +121,21 @@
             sys.exit(0)
         for row in reader:
             total_rows += 1
-            host = (get(row, "Host") or "").lower()
-            if host:
-                hosts_seen.add(host)
-            if host and host != hostname:
+            row_ids = row_identifiers(row)
+            hosts_seen |= row_ids
+            if not (row_ids & identifiers):
                 continue
             cve_raw = get(row, "CVE") or ""
             cves = [c.strip() for c in cve_raw.split(",") if c.strip()]
             findings.append({
                 "severity": get(row, "Risk") or "UNKNOWN",
-                "state": "Active",
-                "asset": {"hostname": get(row, "Host") or hostname},
+                "state": get(row, "Vulnerability State") or "Active",
+                "asset": {"hostname": get(row, "Host") or next(iter(row_ids), "")},
                 "plugin": {
-                    "id": get(row, "Plugin ID", "Plugin"),
+                    "id": get(row, "Plugin ID"),
                     "cve": cves,
-                    "vpr": {"score": get(row, "VPR Score", "VPR")},
-                    "cvss3_base_score": get(row, "CVSS v3.0 Base Score", "CVSS V3 Base Score", "CVSS"),
+                    "vpr": {"score": get(row, "Vulnerability Priority Rating (VPR)", "VPR")},
+                    "cvss3_base_score": get(row, "CVSS3 Base Score"),
                 },
             })
     print(json.dumps({
@@ -127,7 +144,7 @@
             "columns": reader.fieldnames,
             "total_rows": total_rows,
             "hosts_seen": sorted(hosts_seen),
-            "filtered_for": hostname,
+            "filtered_for": sorted(identifiers),
         },
     }))
     PYEOF
