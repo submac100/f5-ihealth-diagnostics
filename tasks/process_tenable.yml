@@ -26,6 +26,7 @@
     status_code: [200, 400, 401, 403, 404, 409, 422]
   register: tenable_export
   no_log: true
+  ignore_errors: true # let the debug/fail tasks below report *why* it failed, instead of aborting here with no_log hiding the reason
 
 # Deliberately NOT no_log: only status + the response body (Tenable's own
 # error message) are shown here -- never the request, so the API keys in the
@@ -33,13 +34,14 @@
 - name: Show the Tenable export response for troubleshooting
   ansible.builtin.debug:
     msg:
-      status: "{{ tenable_export.status }}"
+      status: "{{ tenable_export.status | default('(no HTTP response -- connection/module-level error)') }}"
+      error: "{{ tenable_export.msg | default('(none)') }}"
       body: "{{ tenable_export.json | default(tenable_export.content) | default('(no body)') }}"
 
 - name: Fail clearly if the export request was not accepted
   ansible.builtin.fail:
-    msg: "Tenable export request failed with status {{ tenable_export.status }} -- see the response above."
-  when: tenable_export.status != 200
+    msg: "Tenable export request failed -- see the response above."
+  when: tenable_export.status | default(0) != 200
 
 - name: Wait for the Tenable scan export to finish
   ansible.builtin.uri:
